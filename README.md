@@ -1,1 +1,9 @@
-# dart_ziparchiver
+# README
+
+## Setup
+
+```
+brew install libzip
+```
+
+
