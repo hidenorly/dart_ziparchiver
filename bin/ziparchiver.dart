@@ -25,6 +25,34 @@ void printUsage(ArgParser parser) {
   print(parser.usage);
 }
 
+// iterate files
+Stream<FileSystemEntity> listEntities(Directory directory) async* {
+  try {
+    await for (final entity in directory.list()) {
+      yield entity;
+    }
+  } catch (e) {
+    print('Error listing directory ${directory.path}: $e');
+  }
+}
+
+Future<void> findFilesRecursively(String targetPath, void Function(File file) onFileFound) async {
+  final directory = Directory(targetPath);
+
+  if (await directory.exists()) {
+    await for (final entity in listEntities(directory)) {
+      if (entity is File) {
+        onFileFound(entity);
+      } else if (entity is Directory) {
+        await findFilesRecursively(entity.path, onFileFound);
+      }
+    }
+  } else {
+    print('not found: ${targetPath}');
+  }
+}
+
+
 void main(List<String> arguments) async {
   final parser = ArgParser()
     ..addOption('password', abbr: 'p', help: 'Password')
@@ -45,10 +73,12 @@ void main(List<String> arguments) async {
     return;
   }
   var targetZipFile = argResults.rest[0];
+  var targets = [];
   var targetFiles = [];
   if( argResults.rest.length == 1){
+    // --- one file case. hoge.txt -> hoge.zip, hoge/ -> hoge.zip
     final path = argResults.rest[0];
-    targetFiles = [path];
+    targets = [path];
 
     final file = File(path);
     final dir = Directory(path);
@@ -57,12 +87,26 @@ void main(List<String> arguments) async {
     final baseName = isFile ? file.uri.pathSegments.last.split('.').first : p.basename(dir.path);
     targetZipFile = "$parentDir/$baseName.zip";
   } else {
-    targetFiles = argResults.rest.sublist(1);
+    // --- multiple case: args[0]:target.zip, arg[1..]:specified files, directories
+    targets = argResults.rest.sublist(1);
   }
 
   if( await File(targetZipFile).exists() ){
     print("${targetZipFile} already exitst.");
     exit(-1);
+  }
+
+  // convert to files
+  for (final path in targets) {
+    final dir = Directory(path);
+    final isDir = await dir.exists();
+    if( isDir ){
+      await findFilesRecursively(path, (File file) {
+        targetFiles.add(file.path);
+      });
+    } else {
+      targetFiles.add(path);
+    }
   }
 
   final zip = ZipArchiver();
@@ -80,8 +124,6 @@ void main(List<String> arguments) async {
     final isDir = await dir.exists();
     if( isFile ){
       zip.addFile(targetFile, targetFile); //TODO:make it relative path
-    } else {
-      //TODO: support directory case
     }
   }
   zip.close();
