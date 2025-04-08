@@ -52,6 +52,24 @@ Future<void> findFilesRecursively(String targetPath, void Function(File file) on
   }
 }
 
+String getDeltaPath(String baseDir, String targetPath) {
+  final String expandedBase = p.absolute(p.normalize(baseDir));
+  final String expandedTarget = p.absolute(p.normalize(targetPath));
+
+  // case : not started with baseDir
+  if (!expandedTarget.startsWith(expandedBase)) {
+    return targetPath;
+  }
+
+  // same path
+  if (expandedTarget.length == expandedBase.length) {
+    return "";
+  }
+
+  final candidate = expandedTarget.substring(expandedBase.length + 1);
+  return candidate.length < targetPath.length ? candidate : targetPath;
+}
+
 
 void main(List<String> arguments) async {
   final parser = ArgParser()
@@ -115,6 +133,7 @@ void main(List<String> arguments) async {
   } else {
     zip.open(targetZipFile);
   }
+  final baseDir = p.dirname(targetZipFile);
 
   for (var targetFile in targetFiles) {
     print("zip ${targetFile} to ${targetZipFile}");
@@ -123,7 +142,7 @@ void main(List<String> arguments) async {
     final isFile = await file.exists();
     final isDir = await dir.exists();
     if( isFile ){
-      zip.addFile(targetFile, targetFile); //TODO:make it relative path
+      zip.addFile(targetFile, getDeltaPath(baseDir, targetFile));
     }
   }
   zip.close();
