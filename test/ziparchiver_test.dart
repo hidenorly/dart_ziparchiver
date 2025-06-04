@@ -14,12 +14,19 @@
    limitations under the License.
 */
 
-import 'package:ziparchiver/ziparchiver.dart';
+import 'dart:io';
 import 'package:test/test.dart';
-import '../lib/ziparchiver.dart';
 
 void main() {
-  test('calculate', () {
-    //expect(calculate(), 42);
+  test('execute & help', () async {
+    final process = await Process.start('dart', ['run', 'bin/ziparchiver.dart', '--help']);
+
+    final result = await process.stdout.transform(SystemEncoding().decoder).join();
+    final exitCode = await process.exitCode;
+
+    expect(exitCode, equals(0));
+
+    expect(result, contains('Usage: dart ziparchiver'));
+    expect(result, contains('--password'));
   });
 }
